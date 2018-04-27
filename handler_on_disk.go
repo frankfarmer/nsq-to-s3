@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/bitly/go-nsq"
+	"github.com/nsqio/go-nsq"
 	log "github.com/cihub/seelog"
 	"io/ioutil"
 	"os"

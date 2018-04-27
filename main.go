@@ -2,16 +2,28 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/bitly/go-nsq"
-	"github.com/bitly/nsq/internal/app"
-	"github.com/bitly/nsq/internal/version"
-	log "github.com/cihub/seelog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"github.com/nsqio/go-nsq"
+	//	"github.com/nsqio/nsq/internal/app"
+	//	"github.com/nsqio/nsq/internal/version"
 )
+
+type StringArray []string
+
+func (a *StringArray) Set(s string) error {
+	*a = append(*a, s)
+	return nil
+}
+
+func (a *StringArray) String() string {
+	return strings.Join(*a, ",")
+}
 
 var (
 	showVersion = flag.Bool("version", false, "print version string")
@@ -29,13 +41,13 @@ var (
 	messageBufferFileName = flag.String("bufferfile", "", "Local file to buffer messages in between flushes to S3")
 	s3FileExtention       = flag.String("extention", "txt", "Extention for files on S3")
 
-	consumerOpts     = app.StringArray{}
-	nsqdTCPAddrs     = app.StringArray{}
-	lookupdHTTPAddrs = app.StringArray{}
+	//consumerOpts     = StringArray{}
+	nsqdTCPAddrs     = StringArray{}
+	lookupdHTTPAddrs = StringArray{}
 )
 
 func init() {
-	flag.Var(&consumerOpts, "consumer-opt", "option to passthrough to nsq.Consumer (may be given multiple times, http://godoc.org/github.com/bitly/go-nsq#Config)")
+	//flag.Var(&consumerOpts, "consumer-opt", "option to passthrough to nsq.Consumer (may be given multiple times, http://godoc.org/github.com/nsqio/go-nsq#Config)")
 	flag.Var(&nsqdTCPAddrs, "nsqd-tcp-address", "nsqd TCP address (may be given multiple times)")
 	flag.Var(&lookupdHTTPAddrs, "lookupd-http-address", "lookupd HTTP address (may be given multiple times)")
 }
@@ -61,11 +73,11 @@ func main() {
 
 	// Set up the NSQ client:
 	cfg := nsq.NewConfig()
-	cfg.UserAgent = fmt.Sprintf("nsq_to_s3/%s go-nsq/%s", version.Binary, nsq.VERSION)
-	err := app.ParseOpts(cfg, consumerOpts)
-	if err != nil {
-		panic(err)
-	}
+	//cfg.UserAgent = fmt.Sprintf("%s", nsq.UserAgent)
+	//err := app.ParseOpts(cfg, consumerOpts)
+	//if err != nil {
+	//	panic(err)
+	//}
 	cfg.MaxInFlight = *maxInFlight
 
 	consumer, err := nsq.NewConsumer(*topic, *channel, cfg)
