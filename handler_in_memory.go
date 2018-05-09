@@ -81,3 +81,7 @@ func (handler *InMemoryHandler) FlushBufferToS3() error {
 	return nil
 
 }
+
+func (handler *InMemoryHandler) Stop() {
+	handler.FlushBufferToS3()
+}

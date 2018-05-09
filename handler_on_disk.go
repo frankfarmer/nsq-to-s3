@@ -54,13 +54,11 @@ func (handler *OnDiskHandler) HandleMessage(m *nsq.Message) error {
 
 	// See if we need to flush to disk:
 	if (len(handler.inFlightMessages) == *maxInFlight) || (int(time.Now().Unix())-handler.timeLastFlushedToDisk >= *maxInFlightTime) {
-		log.Debugf("Flushing %d in-flight messages to disk (%v)...", len(handler.inFlightMessages), *messageBufferFileName)
 		handler.FlushInFlightMessages()
 	}
 
 	// See if we need to flush to S3:
 	if (handler.messagesBuffered == int64(*bucketMessages)) || (int(time.Now().Unix())-handler.timeLastFlushedToS3 >= *bucketSeconds) {
-		log.Infof("Flushing buffer to S3 ...")
 		handler.FlushBufferToS3()
 	}
 
@@ -69,6 +67,10 @@ func (handler *OnDiskHandler) HandleMessage(m *nsq.Message) error {
 
 // Flush the in-flight messages:
 func (handler *OnDiskHandler) FlushInFlightMessages() error {
+	if len(handler.inFlightMessages) == 0 {
+		return nil
+	}
+	log.Debugf("Flushing %d in-flight messages to disk (%v)...", len(handler.inFlightMessages), *messageBufferFileName)
 
 	var messageBufferFile *os.File
 	var fileData []byte
@@ -117,6 +119,8 @@ func (handler *OnDiskHandler) FlushInFlightMessages() error {
 
 // Flush the message-buffer:
 func (handler *OnDiskHandler) FlushBufferToS3() error {
+	log.Infof("Flushing buffer to S3 ...")
+	handler.FlushInFlightMessages()
 
 	log.Debugf("Messages processed (since the beginning): %d", handler.allTimeMessages)
 
@@ -142,4 +146,8 @@ func (handler *OnDiskHandler) FlushBufferToS3() error {
 
 	return nil
 
+}
+
+func (handler *OnDiskHandler) Stop() {
+	handler.FlushInFlightMessages()
 }

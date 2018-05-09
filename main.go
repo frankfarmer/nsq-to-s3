@@ -52,6 +52,11 @@ func init() {
 	flag.Var(&lookupdHTTPAddrs, "lookupd-http-address", "lookupd HTTP address (may be given multiple times)")
 }
 
+type StoppableHandler interface {
+	nsq.Handler
+	Stop()
+}
+
 func main() {
 	// Make sure we flush the log before quitting:
 	defer log.Flush()
@@ -85,40 +90,32 @@ func main() {
 		panic(err)
 	}
 
+	var messageHandler StoppableHandler
 	// See which mode we've been asked to run in:
 	switch *batchMode {
 	case "disk":
-		{
-			// On-disk:
-			messageHandler := &OnDiskHandler{
-				allTimeMessages:       0,
-				deDuper:               make(map[string]int),
-				inFlightMessages:      make([]*nsq.Message, 0),
-				timeLastFlushedToS3:   int(time.Now().Unix()),
-				timeLastFlushedToDisk: int(time.Now().Unix()),
-			}
-
-			// Add the handler:
-			consumer.AddHandler(messageHandler)
+		// On-disk:
+		messageHandler = &OnDiskHandler{
+			allTimeMessages:       0,
+			deDuper:               make(map[string]int),
+			inFlightMessages:      make([]*nsq.Message, 0),
+			timeLastFlushedToS3:   int(time.Now().Unix()),
+			timeLastFlushedToDisk: int(time.Now().Unix()),
 		}
 	case "channel":
-		{
-			panic("'channel' batch-mode isn't implemented yet!")
-		}
+		panic("'channel' batch-mode isn't implemented yet!")
 	default:
-		{
-			// Default to in-memory:
-			messageHandler := &InMemoryHandler{
-				allTimeMessages:     0,
-				deDuper:             make(map[string]int),
-				messageBuffer:       make([]*nsq.Message, 0),
-				timeLastFlushedToS3: int(time.Now().Unix()),
-			}
-
-			// Add the handler:
-			consumer.AddHandler(messageHandler)
+		// Default to in-memory:
+		messageHandler = &InMemoryHandler{
+			allTimeMessages:     0,
+			deDuper:             make(map[string]int),
+			messageBuffer:       make([]*nsq.Message, 0),
+			timeLastFlushedToS3: int(time.Now().Unix()),
 		}
 	}
+
+	// Add the handler:
+	consumer.AddHandler(messageHandler)
 
 	// Configure the NSQ connection with the list of NSQd addresses:
 	err = consumer.ConnectToNSQDs(nsqdTCPAddrs)
@@ -139,7 +136,8 @@ func main() {
 			return
 		case <-sigChan:
 			consumer.Stop()
-			os.Exit(0)
+			messageHandler.Stop()
+			return
 		}
 	}
 }
